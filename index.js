@@ -53,7 +53,7 @@ async function run() {
     const reviewCollection = client.db("galaxyDB").collection("review");
     // await client.connect();
 
-    // auth related API
+    // JWT related API
 
     app.post("/jwt", (req, res) => {
       const user = req.body;
@@ -106,20 +106,11 @@ async function run() {
       res.send(result);
     });
 
-    // Bookings API
-    // app.get("/booking", async (req, res) => {
-    //   try {
-    //     const cursor = bookingCollection.find();
-    //     const result = await cursor.toArray();
-    //     res.send(result);
-    //   } catch (err) {
-    //     console.log(err);
-    //   }
-    // });
+    // bookings related API
 
-    app.get("/booking", async (req, res) => {
+    app.get("/booking", verifyToken, async (req, res) => {
       // console.log(req.user);
-      // console.log(req.user.email, req.query.email);
+      // console.log(req.user?.email, req.query.email);
       if (req.user?.email !== req.query.email) {
         return res.status(403).send({ message: "forbidden access" });
       }
@@ -127,7 +118,7 @@ async function run() {
       if (req.query?.email) {
         query = { email: req.query.email };
       }
-      console.log(query);
+      // console.log(query);
       const result = await bookingCollection.find(query).toArray();
       res.send(result);
     });
@@ -141,17 +132,14 @@ async function run() {
       res.send(result);
     });
 
-    // app.post("/booking", async (req, res) => {
-    //   try {
-    //     const bookingInfo = req.body;
-    //     console.log(bookingInfo);
-    //     const result = await bookingCollection.insertOne(bookingInfo);
-    //     res.send(result);
-    //   } catch (err) {
-    //     console.log(err);
-    //     res.send({ message: "something went wrong!" });
-    //   }
-    // });
+    app.get("/booked-room/:id", async (req, res) => {
+      const { id } = req.params;
+      // console.log(id);
+      const query = { roomId: id };
+      const result = await bookingCollection.findOne(query);
+      // console.log(result);
+      res.send(result);
+    });
 
     app.post("/booking", async (req, res) => {
       try {
@@ -161,15 +149,15 @@ async function run() {
         // console.log(number);
         const user = req.body;
         const id = req.body.roomId;
-        console.log(user, id);
+        // console.log(user, id);
 
         const query = { _id: new ObjectId(id), available: { $gt: 0 } };
-        console.log(query);
+
         const updateRoomNumber = await roomsCollection.updateOne(query, {
           $inc: { available: -1 },
         });
 
-        console.log(updateRoomNumber);
+        // console.log(updateRoomNumber);
         if (updateRoomNumber.modifiedCount > 0) {
           const bookingInfo = req.body;
           console.log(bookingInfo);
@@ -186,18 +174,12 @@ async function run() {
       const newDate = req.body;
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
-      const options = { upsert: true };
       const updateDate = {
         $set: {
-          checkIn: newDate.checkIn,
-          checkOut: newDate.checkOut,
+          bookedDates: newDate?.bookedDates,
         },
       };
-      const result = await bookingCollection.updateOne(
-        filter,
-        updateDate,
-        options
-      );
+      const result = await bookingCollection.updateOne(filter, updateDate);
       res.send(result);
     });
 
@@ -217,22 +199,19 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/review", async (req, res) => {
-      let query = {};
-      if (req.query.sid) {
-        query = { sid: req.query.sid };
-      }
-      const cursor = reviewCollection.find(query);
-      const result = await cursor.toArray();
+    app.get("/reviews", async (req, res) => {
+      const { sid } = req.query;
+      const query = { sid: sid };
+      const result = await reviewCollection.find(query).toArray();
       res.send(result);
     });
 
-    app.get("/review/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await reviewCollection.findOne(query);
-      res.send(result);
-    });
+    // app.get("/review/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const query = { _id: new ObjectId(id) };
+    //   const result = await reviewCollection.findOne(query);
+    //   res.send(result);
+    // });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
